@@ -1,17 +1,26 @@
 #include <Arduino.h>
+#include <Wire.h>
 #include "WiFi.h"
 #include "ESPAsyncWebServer.h"
 #include "AsyncTCP.h"
 #include "SPI.h"
 #include "TFT_eSPI.h"
 #include "XPT2046_Touchscreen.h"
+#include "Adafruit_GFX.h"
 
 #define LED1 2
-#define HEATER_PWM 27
-#define TIP_PWM 26
-#define POWER_BUTTON 25
+#define HEATER_PWM 17
+#define TIP_PWM 5
+#define POWER_BUTTON 19
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
+#define TFT_ROTATION -1 // -1 sd to up, 1 sd to down, 0 portrait layout
+
+#define XPT2046_IRQ 36   // T_IRQ
+#define XPT2046_MOSI 32  // T_DIN
+#define XPT2046_MISO 39  // T_OUT
+#define XPT2046_CLK 25   // T_CLK
+#define XPT2046_CS 33    // T_CS
 
 const char* ssid = "Sergey";
 const char* password = "12031949";
@@ -19,33 +28,39 @@ const char* password = "12031949";
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 TFT_eSPI tft = TFT_eSPI();
+SPIClass touchscreenSPI = SPIClass(VSPI);
+XPT2046_Touchscreen touchscreen(XPT2046_CS, XPT2046_IRQ);
+
+TaskHandle_t TouchTaskHandle; // touch control handling
+
+int x, y, z;
 
 class DrawMenu {
     private:
         TFT_eSPI* tft;
         int btnWidth;
         int btnHeight;
-        const char *labels[4] = {"Solder Station", "Oscillograph", "Light", "Power Supply"};
+        const char *labels[4] = {"Solder Station", "Oscillograph", "Light Control", "Power Supply"};
     
     public:
         DrawMenu(TFT_eSPI* display) {
             tft = display;
             tft->init();
-            tft->setRotation(1);
+            tft->setRotation(TFT_ROTATION); 
             btnWidth = SCREEN_WIDTH / 2;
             btnHeight = SCREEN_HEIGHT / 2;
         }
     
         void drawMainMenu() {
-            tft->fillScreen(TFT_BLACK);
-            tft->setTextColor(TFT_GREEN, TFT_BLACK);
-            tft->setTextDatum(MC_DATUM);
+            tft->fillRectHGradient(0, 0, tft->width(), tft->height(), 0x05BF, 0x04D1);
+            tft->setTextColor(TFT_GREEN);
+            tft->setTextDatum(MC_DATUM); // align
             tft->setTextSize(1);
             
             for (int i = 0; i < 4; i++) {
                 int x = (i % 2) * btnWidth;
                 int y = (i / 2) * btnHeight;
-                tft->drawRect(x, y, btnWidth, btnHeight, TFT_GREEN);
+                tft->drawRect(x, y, btnWidth, btnHeight, TFT_LIGHTGREY);
                 tft->drawCentreString(labels[i], x + btnWidth / 2, y + btnHeight / 2, 2);
             }
 
@@ -85,18 +100,7 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
     }
 }
 
-
-
 DrawMenu menu(&tft);
-
-
-// const ushort centerX = SCREEN_WIDTH / 2;
-// const ushort centerY = SCREEN_HEIGHT / 2;
-
-
-
-
-
 
 void initLedPins()
 {
@@ -108,6 +112,45 @@ void initLedPins()
     ledcSetup(1, 5000, 8);
     ledcAttachPin(HEATER_PWM, 0);
     ledcAttachPin(TIP_PWM, 1);
+}
+
+void printTouchToSerial(int touchX, int touchY, int touchZ) {
+    Serial.print("X = ");
+    Serial.print(touchX);
+    Serial.print(" | Y = ");
+    Serial.print(touchY);
+    Serial.print(" | Pressure = ");
+    Serial.print(touchZ);
+    Serial.println();
+  }
+
+void TouchTask(void *pvParameters) {
+    // while (1) {
+    //     if (touchscreen.touched()) {
+    //         TS_Point p = touchscreen.getPoint();
+    //         Serial.printf("Touch: X=%d, Y=%d\n", p.x, p.y);
+
+    //         // Малюємо точку в місці дотику
+    //         tft.fillCircle(p.x, p.y, 3, TFT_RED);
+    //     }
+    //     vTaskDelay(10 / portTICK_PERIOD_MS);  // Мінімальна затримка, щоб не навантажувати CPU
+    // }
+    while(1){
+        if (touchscreen.tirqTouched() && touchscreen.touched()) {
+            // Get Touchscreen points
+            TS_Point p = touchscreen.getPoint();
+            // Calibrate Touchscreen points with map function to the correct width and height
+            x = map(p.x, 200, 3700, 1, SCREEN_WIDTH);
+            y = map(p.y, 240, 3800, 1, SCREEN_HEIGHT);
+            z = p.z;
+        
+            printTouchToSerial(x, y, z);
+        
+            delay(100);
+          }
+          vTaskDelay(10 / portTICK_PERIOD_MS);
+    }
+
 }
 
 const char index_html[] PROGMEM = R"rawliteral(
@@ -240,11 +283,20 @@ void setup() {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send_P(200, "text/html", index_html);
     });
-
     initLedPins();
-
     server.begin(); 
-
+    touchscreenSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
+    touchscreen.begin();
+    touchscreen.setRotation(1);
+    // xTaskCreatePinnedToCore(
+    //     TouchTask,    
+    //     "TouchTask", 
+    //     4096,         
+    //     NULL,        
+    //     1,            
+    //     &TouchTaskHandle, 
+    //     1             
+    // );
     menu.drawMainMenu();
 
 }
