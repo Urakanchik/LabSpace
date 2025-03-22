@@ -18,12 +18,39 @@ const char* password = "12031949";
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
-
 TFT_eSPI tft = TFT_eSPI();
-DrawMenu menu(&tft);
 
-// const ushort centerX = SCREEN_WIDTH / 2;
-// const ushort centerY = SCREEN_HEIGHT / 2;
+class DrawMenu {
+    private:
+        TFT_eSPI* tft;
+        int btnWidth;
+        int btnHeight;
+        const char *labels[4] = {"Solder Station", "Oscillograph", "Light", "Power Supply"};
+    
+    public:
+        DrawMenu(TFT_eSPI* display) {
+            tft = display;
+            tft->init();
+            tft->setRotation(1);
+            btnWidth = SCREEN_WIDTH / 2;
+            btnHeight = SCREEN_HEIGHT / 2;
+        }
+    
+        void drawMainMenu() {
+            tft->fillScreen(TFT_BLACK);
+            tft->setTextColor(TFT_GREEN, TFT_BLACK);
+            tft->setTextDatum(MC_DATUM);
+            tft->setTextSize(1);
+            
+            for (int i = 0; i < 4; i++) {
+                int x = (i % 2) * btnWidth;
+                int y = (i / 2) * btnHeight;
+                tft->drawRect(x, y, btnWidth, btnHeight, TFT_GREEN);
+                tft->drawCentreString(labels[i], x + btnWidth / 2, y + btnHeight / 2, 2);
+            }
+
+        }
+};
 
 void notifyClients(String message) {
     ws.textAll(message);
@@ -58,30 +85,18 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
     }
 }
 
-class DrawMenu {
-    private:
-        TFT_eSPI* tft;
-    
-    public:
-        DrawMenu(TFT_eSPI* display) {
-            tft = display;
-        }
-    
-        void drawMainMenu() {
-            tft->fillScreen(TFT_BLACK);
-            drawButton(20, 40, 140, 80, "Solder", TFT_GREEN);
-            drawButton(180, 40, 140, 80, "Oscillograph", TFT_GREEN);
-            drawButton(20, 140, 140, 80, "Light Modes", TFT_GREEN);
-            drawButton(180, 140, 140, 80, "Power Supply", TFT_GREEN);
-        }
-    
-        void drawButton(int x, int y, int w, int h, const char* label, uint16_t color) {
-            tft->drawRect(x, y, w, h, color);
-            tft->setTextColor(color, TFT_BLACK);
-            tft->setTextDatum(MC_DATUM);
-            tft->drawString(label, x + w / 2, y + h / 2);
-        }
-};
+
+
+DrawMenu menu(&tft);
+
+
+// const ushort centerX = SCREEN_WIDTH / 2;
+// const ushort centerY = SCREEN_HEIGHT / 2;
+
+
+
+
+
 
 void initLedPins()
 {
@@ -93,36 +108,6 @@ void initLedPins()
     ledcSetup(1, 5000, 8);
     ledcAttachPin(HEATER_PWM, 0);
     ledcAttachPin(TIP_PWM, 1);
-}
-
-void setup() {
-    Serial.begin(115200);
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(1000);
-        Serial.println("Connecting to WiFi..");
-    }
-    Serial.println(WiFi.localIP());
-    
-    ws.onEvent(onWebSocketEvent);
-    server.addHandler(&ws);
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send_P(200, "text/html", index_html);
-    });
-
-    initLedPins();
-
-    server.begin();
-    tft.setTextSize(6);
-    tft.println("dinntes\n ");
-    tft.setTextColor(TFT_BLUE, TFT_BLACK);
-    tft.println("<3 \n");
-    tft.setTextColor(TFT_BROWN, TFT_BLACK);
-    tft.print("urknchk");
-}
-
-void loop() {
-    ws.cleanupClients();
 }
 
 const char index_html[] PROGMEM = R"rawliteral(
@@ -240,3 +225,32 @@ const char index_html[] PROGMEM = R"rawliteral(
     </body>
     </html>
     )rawliteral";
+
+void setup() {
+    Serial.begin(115200);
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(1000);
+        Serial.println("Connecting to WiFi..");
+    }
+    Serial.println(WiFi.localIP());
+    
+    ws.onEvent(onWebSocketEvent);
+    server.addHandler(&ws);
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send_P(200, "text/html", index_html);
+    });
+
+    initLedPins();
+
+    server.begin(); 
+
+    menu.drawMainMenu();
+
+}
+
+void loop() {
+    ws.cleanupClients();
+}
+
+
