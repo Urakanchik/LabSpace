@@ -5,31 +5,23 @@
 #include "AsyncTCP.h"
 #include "SPI.h"
 #include "TFT_eSPI.h"
-#include "XPT2046_Touchscreen.h"
 #include "Adafruit_GFX.h"
 
 #define LED1 2
-#define HEATER_PWM 17
-#define TIP_PWM 5
-#define POWER_BUTTON 19
+#define HEATER_PWM 25
+#define TIP_PWM 33
+#define POWER_BUTTON 32
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
 #define TFT_ROTATION -1 // -1 sd to up, 1 sd to down, 0 portrait layout
 
-#define XPT2046_IRQ 36   // T_IRQ
-#define XPT2046_MOSI 32  // T_DIN
-#define XPT2046_MISO 39  // T_OUT
-#define XPT2046_CLK 25   // T_CLK
-#define XPT2046_CS 33    // T_CS
 
-const char* ssid = "Sergey";
-const char* password = "12031949";
+const char* ssid = "WIFI";
+const char* password = "PASSWORD";
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 TFT_eSPI tft = TFT_eSPI();
-SPIClass touchscreenSPI = SPIClass(VSPI);
-XPT2046_Touchscreen touchscreen(XPT2046_CS, XPT2046_IRQ);
 
 TaskHandle_t TouchTaskHandle; // touch control handling
 
@@ -114,44 +106,6 @@ void initLedPins()
     ledcAttachPin(TIP_PWM, 1);
 }
 
-void printTouchToSerial(int touchX, int touchY, int touchZ) {
-    Serial.print("X = ");
-    Serial.print(touchX);
-    Serial.print(" | Y = ");
-    Serial.print(touchY);
-    Serial.print(" | Pressure = ");
-    Serial.print(touchZ);
-    Serial.println();
-  }
-
-void TouchTask(void *pvParameters) {
-    // while (1) {
-    //     if (touchscreen.touched()) {
-    //         TS_Point p = touchscreen.getPoint();
-    //         Serial.printf("Touch: X=%d, Y=%d\n", p.x, p.y);
-
-    //         // Малюємо точку в місці дотику
-    //         tft.fillCircle(p.x, p.y, 3, TFT_RED);
-    //     }
-    //     vTaskDelay(10 / portTICK_PERIOD_MS);  // Мінімальна затримка, щоб не навантажувати CPU
-    // }
-    while(1){
-        if (touchscreen.tirqTouched() && touchscreen.touched()) {
-            // Get Touchscreen points
-            TS_Point p = touchscreen.getPoint();
-            // Calibrate Touchscreen points with map function to the correct width and height
-            x = map(p.x, 200, 3700, 1, SCREEN_WIDTH);
-            y = map(p.y, 240, 3800, 1, SCREEN_HEIGHT);
-            z = p.z;
-        
-            printTouchToSerial(x, y, z);
-        
-            delay(100);
-          }
-          vTaskDelay(10 / portTICK_PERIOD_MS);
-    }
-
-}
 
 const char index_html[] PROGMEM = R"rawliteral(
     <!DOCTYPE HTML><html>
@@ -285,18 +239,6 @@ void setup() {
     });
     initLedPins();
     server.begin(); 
-    touchscreenSPI.begin(XPT2046_CLK, XPT2046_MISO, XPT2046_MOSI, XPT2046_CS);
-    touchscreen.begin();
-    touchscreen.setRotation(1);
-    // xTaskCreatePinnedToCore(
-    //     TouchTask,    
-    //     "TouchTask", 
-    //     4096,         
-    //     NULL,        
-    //     1,            
-    //     &TouchTaskHandle, 
-    //     1             
-    // );
     menu.drawMainMenu();
 
 }
