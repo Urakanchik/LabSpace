@@ -11,104 +11,15 @@
 #define HEATER_PWM 25
 #define TIP_PWM 33
 #define POWER_BUTTON 32
+#define LIGHT_PIN 4
+#define VOLTAGE_PIN 26
+#define CURRENT_PIN 27
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
-#define TFT_ROTATION -1 // -1 sd to up, 1 sd to down, 0 portrait layout
-
-
-const char* ssid = "WIFI";
-const char* password = "PASSWORD";
-
-AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
-TFT_eSPI tft = TFT_eSPI();
-
-TaskHandle_t TouchTaskHandle; // touch control handling
-
-int x, y, z;
-
-class DrawMenu {
-    private:
-        TFT_eSPI* tft;
-        int btnWidth;
-        int btnHeight;
-        const char *labels[4] = {"Solder Station", "Oscillograph", "Light Control", "Power Supply"};
-    
-    public:
-        DrawMenu(TFT_eSPI* display) {
-            tft = display;
-            tft->init();
-            tft->setRotation(TFT_ROTATION); 
-            btnWidth = SCREEN_WIDTH / 2;
-            btnHeight = SCREEN_HEIGHT / 2;
-        }
-    
-        void drawMainMenu() {
-            tft->fillRectHGradient(0, 0, tft->width(), tft->height(), 0x05BF, 0x04D1);
-            tft->setTextColor(TFT_GREEN);
-            tft->setTextDatum(MC_DATUM); // align
-            tft->setTextSize(1);
-            
-            for (int i = 0; i < 4; i++) {
-                int x = (i % 2) * btnWidth;
-                int y = (i / 2) * btnHeight;
-                tft->drawRect(x, y, btnWidth, btnHeight, TFT_LIGHTGREY);
-                tft->drawCentreString(labels[i], x + btnWidth / 2, y + btnHeight / 2, 2);
-            }
-
-        }
-};
-
-void notifyClients(String message) {
-    ws.textAll(message);
-}
-
-void onWebSocketMessage(void *arg, uint8_t *data, size_t len) {
-    AwsFrameInfo *info = (AwsFrameInfo*)arg;
-    if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-        String msg = "";
-        for (size_t i = 0; i < len; i++) {
-            msg += (char)data[i];
-        }
-        if (msg.startsWith("tip:")) {
-            int value = msg.substring(4).toInt();
-            ledcWrite(0, value);
-        } else if (msg.startsWith("heater:")) {
-            int value = msg.substring(7).toInt();
-            ledcWrite(1, value);
-        } else if (msg == "toggle") {
-            digitalWrite(POWER_BUTTON, !digitalRead(POWER_BUTTON));
-        }
-    }
-}
-
-void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-    if (type == WS_EVT_CONNECT) {
-        Serial.println("WebSocket client connected");
-    } else if (type == WS_EVT_DISCONNECT) {
-        Serial.println("WebSocket client disconnected");
-    } else if (type == WS_EVT_DATA) {
-        onWebSocketMessage(arg, data, len);
-    }
-}
-
-DrawMenu menu(&tft);
-
-void initLedPins()
-{
-    pinMode(LED1, OUTPUT);
-    pinMode(POWER_BUTTON, OUTPUT);
-    digitalWrite(LED1, HIGH);
-    digitalWrite(POWER_BUTTON, LOW);
-    ledcSetup(0, 5000, 8);
-    ledcSetup(1, 5000, 8);
-    ledcAttachPin(HEATER_PWM, 0);
-    ledcAttachPin(TIP_PWM, 1);
-}
-
+#define TFT_ROTATION -1
 
 const char index_html[] PROGMEM = R"rawliteral(
-    <!DOCTYPE HTML><html>
+    <!DOCTYPE HTML>
     <html lang="uk">
     <head>
         <meta charset="UTF-8">
@@ -160,20 +71,36 @@ const char index_html[] PROGMEM = R"rawliteral(
         
         <div id="home" class="page active">
             <div class="grid-container">
-                <div class="grid-item" onclick="showPage('soldering')">Паяльна станція</div>
-                <div class="grid-item">Осцилограф</div>
-                <div class="grid-item">Підсвітка</div>
-                <div class="grid-item">Блок живлення</div>
+                <div class="grid-item" onclick="showPage('0')">Паяльна станція</div>
+                <div class="grid-item" onclick="showPage('1')">Осцилограф</div>
+                <div class="grid-item" onclick="showPage('2')">Підсвітка</div>
+                <div class="grid-item" onclick="showPage('3')">Блок живлення</div>
             </div>
         </div>
         
-        <div id="soldering" class="page">
+        <div id="0" class="page">
             <h1>Паяльна станція</h1>
             <div class="control-container">
                 <label>Температура жала: <input type="range" min="0" max="255" id="tipTemp" oninput="sendPWM('tip', this.value)"></label>
                 <label>Температура підігріву: <input type="range" min="0" max="255" id="heaterTemp" oninput="sendPWM('heater', this.value)"></label>
                 <button onclick="togglePower()">Вкл/Викл</button>
             </div>
+        </div>
+    
+        <div id="1" class="page">
+            <h1>Осцилограф</h1>
+            <p>Дані осцилографа будуть відображатися тут.</p>
+        </div>
+        
+        <div id="2" class="page">
+            <h1>Підсвітка</h1>
+            <button onclick="toggleLight()">Увімкнути/Вимкнути</button>
+        </div>
+        
+        <div id="3" class="page">
+            <h1>Блок живлення</h1>
+            <label>Напруга: <input type="range" min="0" max="30" id="voltage" oninput="sendPWM('voltage', this.value)"></label>
+            <label>Сила струму: <input type="range" min="0" max="10" id="current" oninput="sendPWM('current', this.value)"></label>
         </div>
         
         <div id="settings" class="page">
@@ -187,41 +114,185 @@ const char index_html[] PROGMEM = R"rawliteral(
         </div>
         
         <script>
+            let socket = new WebSocket("ws://" + location.host + "/ws");
+
             function showPage(pageId) {
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send("menu:" + pageId);  
+                } else {
+                    console.error("WebSocket не підключений");
+                }
+
                 document.querySelectorAll('.page').forEach(page => {
                     page.classList.remove('active');
                     page.style.display = 'none';
                 });
+
                 let activePage = document.getElementById(pageId);
-                activePage.classList.add('active');
-                activePage.style.display = 'flex';
+                if (activePage) {
+                    activePage.classList.add('active');
+                    activePage.style.display = 'flex';
+                } else {
+                    console.error("Сторінка з ID '" + pageId + "' не знайдена");
+                }
             }
-    
-            let socket = new WebSocket("ws://" + location.host + "/ws");
-    
+
             socket.onmessage = function(event) {
                 let msg = event.data;
-                if (msg.startsWith("tip:")) {
-                    document.getElementById("tipTemp").value = msg.substring(4);
-                } else if (msg.startsWith("heater:")) {
-                    document.getElementById("heaterTemp").value = msg.substring(7);
-                } else if (msg.startsWith("power:")) {
-                    console.log("Паяльна станція " + (msg.substring(6) == "1" ? "увімкнена" : "вимкнена"));
-                }
+                console.log("Отримано: " + msg);
             };
-    
+
             function sendPWM(type, value) {
                 socket.send(type + ":" + value);
             }
-    
+
             function togglePower() {
-                socket.send("toggle");
+                socket.send("toggle_power");
             }
-    
+
+            function toggleLight() {
+                socket.send("toggle_light");
+            }
         </script>
     </body>
     </html>
-    )rawliteral";
+    
+)rawliteral";
+
+const char* ssid = "Sergey";
+const char* password = "12031949";
+
+AsyncWebServer server(80);
+AsyncWebSocket ws("/ws");
+TFT_eSPI tft = TFT_eSPI();
+
+
+TaskHandle_t TouchTaskHandle;
+
+int x, y, z;
+bool lightState = false;
+int tipTemperature = 0;
+int heaterTemperature = 0;
+
+class DrawMenu {
+    private:
+        TFT_eSPI* tft;
+        int btnWidth;
+        int btnHeight;
+        const char *labels[4] = {"Solder Station", "Oscillograph", "Light Control", "Power Supply"};
+    
+    public:
+        DrawMenu(TFT_eSPI* display) {
+            tft = display;
+            tft->init();
+            tft->setRotation(TFT_ROTATION); 
+            btnWidth = SCREEN_WIDTH / 2;
+            btnHeight = SCREEN_HEIGHT / 2;
+        }
+    
+        void drawMainMenu() {
+            tft->fillRectHGradient(0, 0, tft->width(), tft->height(), 0x05BF, 0x04D1);
+            tft->setTextColor(TFT_GREEN);
+            tft->setTextDatum(MC_DATUM);
+            tft->setTextSize(1);
+            
+            for (int i = 0; i < 4; i++) {
+                int x = (i % 2) * btnWidth;
+                int y = (i / 2) * btnHeight;
+                tft->drawRect(x, y, btnWidth, btnHeight, TFT_LIGHTGREY);
+                tft->drawCentreString(labels[i], x + btnWidth / 2, y + btnHeight / 2, 2);
+            }
+        }
+
+        void drawSolderStationMenu() {
+            tft->fillScreen(TFT_BLACK);
+            tft->setTextColor(TFT_WHITE);
+            tft->setTextDatum(MC_DATUM);
+            tft->setTextSize(2);
+            tft->drawCentreString("Solder Station", SCREEN_WIDTH / 2, 40, 4);
+            tft->drawCentreString("Tip Temp: " + String(tipTemperature) + " C", SCREEN_WIDTH / 2, 100, 2);
+            tft->drawCentreString("Heater Temp: " + String(heaterTemperature) + " C", SCREEN_WIDTH / 2, 140, 2);
+        }
+
+        void drawMenuItem(int index) {
+            if (index == 0) {
+                drawSolderStationMenu();
+            } else {
+                tft->fillScreen(TFT_BLACK);
+                tft->setTextColor(TFT_WHITE);
+                tft->setTextDatum(MC_DATUM);
+                tft->setTextSize(2);
+                tft->drawCentreString(labels[index], SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 4);
+            }
+        }
+
+
+};
+
+DrawMenu menu(&tft);
+
+void notifyClients(String message) {
+    ws.textAll(message);
+}
+
+void onWebSocketMessage(void *arg, uint8_t *data, size_t len) {
+    AwsFrameInfo *info = (AwsFrameInfo*)arg;
+    if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
+        String msg = "";
+        for (size_t i = 0; i < len; i++) {
+            msg += (char)data[i];
+        }
+        if (msg.startsWith("tip:")) {
+            tipTemperature = msg.substring(4).toInt();
+            analogWrite(TIP_PWM, tipTemperature);
+        } else if (msg.startsWith("heater:")) {
+            heaterTemperature = msg.substring(7).toInt();
+            analogWrite(HEATER_PWM, heaterTemperature);
+        } else if (msg == "toggle_power") {
+            digitalWrite(POWER_BUTTON, !digitalRead(POWER_BUTTON));
+        } else if (msg == "toggle_light") {
+            lightState = !lightState;
+            digitalWrite(LIGHT_PIN, lightState);
+        } else if (msg.startsWith("voltage:")) {
+            int value = msg.substring(8).toInt();
+            ledcWrite(2, value);
+        } else if (msg.startsWith("current:")) {
+            int value = msg.substring(8).toInt();
+            ledcWrite(3, value);
+        } else if (msg.startsWith("menu:")) {
+            int index = msg.substring(5).toInt();
+            menu.drawMenuItem(index);
+        }
+    }
+}
+
+void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+    if (type == WS_EVT_CONNECT) {
+        Serial.println("WebSocket client connected");
+    } else if (type == WS_EVT_DISCONNECT) {
+        Serial.println("WebSocket client disconnected");
+    } else if (type == WS_EVT_DATA) {
+        onWebSocketMessage(arg, data, len);
+    }
+}
+
+
+void initPins() {
+    pinMode(LED1, OUTPUT);
+    pinMode(POWER_BUTTON, OUTPUT);
+    pinMode(LIGHT_PIN, OUTPUT);
+    digitalWrite(LED1, HIGH);
+    digitalWrite(POWER_BUTTON, LOW);
+    digitalWrite(LIGHT_PIN, LOW);
+    ledcSetup(0, 5000, 8);
+    ledcSetup(1, 5000, 8);
+    ledcSetup(2, 5000, 8);
+    ledcSetup(3, 5000, 8);
+    ledcAttachPin(HEATER_PWM, 0);
+    ledcAttachPin(TIP_PWM, 1);
+    ledcAttachPin(VOLTAGE_PIN, 2);
+    ledcAttachPin(CURRENT_PIN, 3);
+}
 
 void setup() {
     Serial.begin(115200);
@@ -237,14 +308,12 @@ void setup() {
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send_P(200, "text/html", index_html);
     });
-    initLedPins();
+    
+    initPins();
     server.begin(); 
     menu.drawMainMenu();
-
 }
 
 void loop() {
     ws.cleanupClients();
 }
-
-
