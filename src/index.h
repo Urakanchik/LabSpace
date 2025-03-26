@@ -47,8 +47,8 @@ const char index_html[] PROGMEM = R"rawliteral(
     <body>
         <nav>
             <button onclick="showPage('4')">Головна</button>
-            <button onclick="showPage('settings')">Налаштування</button>
-            <button onclick="showPage('about')">Автори</button>
+            <button onclick="showPage('5')">Налаштування</button>
+            <button onclick="showPage('6')">Автори</button>
         </nav>
         
         <div id="4" class="page active">

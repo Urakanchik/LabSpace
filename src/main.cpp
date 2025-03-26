@@ -55,6 +55,7 @@ void onWebSocketMessage(void *arg, uint8_t *data, size_t len) {
             int index = msg.substring(5).toInt();
             menu.drawMenuItem(index);
         }
+        
     }
 }
 
@@ -106,4 +107,20 @@ void setup() {
 
 void loop() {
     ws.cleanupClients();
+
+    if(oscillographOpened)
+    {
+        if (millis() - lastUpdateTimeOsc >= updateIntervalOsc) {
+            menu.updateWave();
+            lastUpdateTimeOsc = millis();
+          }
+    }
+
+    if(solderOpened)
+    {
+        if (millis() - lastUpdateTimeSol >= updateIntervalSol) {
+            menu.updateSolder();
+            lastUpdateTimeSol = millis();
+        }
+    }
 }
