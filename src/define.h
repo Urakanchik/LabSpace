@@ -15,8 +15,8 @@
 #define BG_COLOR TFT_WHITE
 #define SCALE_COLOR TFT_BLACK
 
-#define GRID_X_STEP 24 // шаг сетки по X (пиксели)
-#define GRID_Y_STEP 32  // шаг сетки по Y (пиксели)
-#define GRID_X_DIV 5    // количество делений между основными линиями по X
-#define GRID_Y_DIV 5    // количество делений между основными линиями по Y
+#define GRID_X_STEP 24 
+#define GRID_Y_STEP 32  
+#define GRID_X_DIV 5    
+#define GRID_Y_DIV 5    
 

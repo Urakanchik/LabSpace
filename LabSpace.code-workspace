@@ -1,0 +1,27 @@
+{
+	"folders": [
+		{
+			"path": "../../../VSCode/LabSpace"
+		},
+		{
+			"name": "Test",
+			"path": "../Test"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"chrono": "cpp",
+			"iterator": "cpp",
+			"regex": "cpp",
+			"xlocmon": "cpp",
+			"xlocnum": "cpp",
+			"xloctime": "cpp",
+			"*.tcc": "cpp",
+			"list": "cpp",
+			"random": "cpp",
+			"limits": "cpp",
+			"functional": "cpp",
+			"charconv": "cpp"
+		}
+	}
+}

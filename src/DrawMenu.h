@@ -17,7 +17,6 @@ float yOffset = TFT_WIDTH/ 2;
 int prevX = 0;
 int prevY = 0;
 
-// Время последнего обновления
 unsigned long lastUpdateTimeOsc = 0;
 unsigned long lastUpdateTimeSol = 0;
 const unsigned long updateIntervalOsc = 30; 
@@ -97,20 +96,16 @@ class DrawMenu {
             }
             digitalWrite(POWER_BUTTON, HIGH);
             
-            // Очистка экрана с цветом фона
             tft->fillScreen(0x05BF);
             
-            // Рисуем статичные элементы (заголовок)
             tft->setTextColor(TFT_WHITE);
             tft->setTextDatum(MC_DATUM);
             tft->setTextSize(2);
             tft->drawCentreString("Solder Station", SCREEN_WIDTH / 2, 40, 4);
             
-            // Рисуем подписи для температур (статичная часть)
             tft->setTextSize(2);
-            tft->setTextDatum(TL_DATUM); // Выравнивание по левому краю
+            tft->setTextDatum(TL_DATUM); 
             
-            // Подписи с фиксированными позициями
             tft->setCursor(20, 90);
             tft->print("Tip Temp:");
             
@@ -125,14 +120,11 @@ class DrawMenu {
             static int lastTipTemp = -1;
             static int lastHeaterTemp = -1;
             
-            // Обновляем только если температура изменилась
             if (tipTemperature != lastTipTemp) {
-                // Стираем старую температуру
-                tft->setTextColor(0x05BF); // Цвет фона
-                tft->setTextDatum(TR_DATUM); // Выравнивание по правому краю
+                tft->setTextColor(0x05BF); 
+                tft->setTextDatum(TR_DATUM);
                 tft->drawString(tipBuffer, SCREEN_WIDTH - 20, 90, 2);
                 
-                // Рисуем новую температуру
                 snprintf(tipBuffer, sizeof(tipBuffer), "%d C", tipTemperature);
                 tft->setTextColor(TFT_WHITE);
                 tft->drawString(tipBuffer, SCREEN_WIDTH - 20, 90, 2);
@@ -141,12 +133,10 @@ class DrawMenu {
             }
             
             if (heaterTemperature != lastHeaterTemp) {
-                // Стираем старую температуру
-                tft->setTextColor(0x05BF); // Цвет фона
-                tft->setTextDatum(TR_DATUM); // Выравнивание по правому краю
+                tft->setTextColor(0x05BF);
+                tft->setTextDatum(TR_DATUM); 
                 tft->drawString(heaterBuffer, SCREEN_WIDTH - 20, 130, 2);
                 
-                // Рисуем новую температуру
                 snprintf(heaterBuffer, sizeof(heaterBuffer), "%d C", heaterTemperature);
                 tft->setTextColor(TFT_WHITE);
                 tft->drawString(heaterBuffer, SCREEN_WIDTH - 20, 130, 2);
@@ -166,15 +156,7 @@ class DrawMenu {
             for (int y = 0; y <= TFT_WIDTH; y += GRID_Y_STEP) {
                 tft->drawFastHLine(0, y, TFT_HEIGHT, GRID_COLOR);
             }
-            
-            // for (int x = 0; x <= TFT_HEIGHT; x += GRID_X_STEP/GRID_X_DIV) {
-            //     tft->drawFastVLine(x, 0, TFT_WIDTH, (x % GRID_X_STEP == 0) ? GRID_COLOR : TFT_DARKGREY);
-            // }
-            
-            // for (int y = 0; y <= TFT_WIDTH; y += GRID_Y_STEP/GRID_Y_DIV) {
-            //     tft->drawFastHLine(0, y, TFT_HEIGHT, (y % GRID_Y_STEP == 0) ? GRID_COLOR : TFT_DARKGREY);
-            // }
-            
+
             tft->drawFastHLine(0, TFT_WIDTH/2, TFT_HEIGHT, AXIS_COLOR);
             tft->drawFastVLine(TFT_HEIGHT/2, 0, TFT_WIDTH, AXIS_COLOR);
 
