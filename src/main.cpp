@@ -11,8 +11,8 @@
 #include "DrawMenu.h"
 #include "define.h"
 
-const char* ssid = "SSID";
-const char* password = "PASSWD";
+const char* ssid = "Sergey";
+const char* password = "12031949";
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
