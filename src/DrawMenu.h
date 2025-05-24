@@ -35,7 +35,7 @@ class DrawMenu {
         DrawMenu(TFT_eSPI* display) {
             tft = display;
             tft->init();
-            tft->setRotation(TFT_ROTATION); 
+            tft->setRotation(3); 
             btnWidth = SCREEN_WIDTH / 2;
             btnHeight = SCREEN_HEIGHT / 2;
         }

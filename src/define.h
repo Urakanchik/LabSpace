@@ -7,7 +7,8 @@
 #define CURRENT_PIN 27
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
-#define TFT_ROTATION -1
+
+#define TFT_BL 0
 
 #define GRID_COLOR TFT_DARKGREY
 #define AXIS_COLOR TFT_BLACK
